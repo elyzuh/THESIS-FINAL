@@ -5,6 +5,9 @@ import math
 from sklearn.metrics import mean_squared_error, mean_absolute_error,r2_score,explained_variance_score
 import numpy as np
 
+
+eps = 1e-8
+
 def evaluate(loader, data, model, evaluateL2, evaluateL1, batch_size, modelName):
     model.eval();
     total_loss = 0;
@@ -64,6 +67,32 @@ def evaluate(loader, data, model, evaluateL2, evaluateL1, batch_size, modelName)
     predict = predict.data.numpy();
     Ytest = test.data.numpy();
 
+    # =====================
+    # Relative Error (%)
+    # =====================
+    # Compute per region, then average (consistent with R² and CORR)
+    rel_error_list = []
+    for i in range(Ytest.shape[1]):  # over regions
+        denom = np.abs(Ytest[:, i]) + eps
+        rel_err = np.mean(np.abs(predict[:, i] - Ytest[:, i]) / denom)
+        rel_error_list.append(rel_err)
+
+    # Mean Relative Error (%)
+    relative_error = np.mean(rel_error_list) * 100
+
+
+    # =====================
+    # R² (Coefficient of Determination)
+    # =====================
+    # Compute R² per region, then average (consistent with CORR)
+    r2_list = []
+    for i in range(Ytest.shape[1]):  # over regions
+        if np.var(Ytest[:, i]) > 0:
+            r2_list.append(r2_score(Ytest[:, i], predict[:, i]))
+
+    # Mean R² across regions
+    r2 = np.mean(r2_list) if len(r2_list) > 0 else 0.0
+
     # tmp = 0
     # scale = loader.scale.data.numpy()[0]
     # for loc in range(0, predict.shape[1]):
@@ -84,7 +113,7 @@ def evaluate(loader, data, model, evaluateL2, evaluateL1, batch_size, modelName)
     correlation = ((predict - mean_p) * (Ytest - mean_g)).mean(axis = 0)/(sigma_p * sigma_g);
     correlation = (correlation[index]).mean();
     # root-mean-square error, absolute error, correlation
-    return rse, rae, correlation;
+    return rse, rae, relative_error,correlation, r2;
 
 def train(loader, data, model, criterion, optim, batch_size, modelName, Lambda):
     model.train();
