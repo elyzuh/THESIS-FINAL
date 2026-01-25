@@ -21,8 +21,8 @@ def evaluate(loader, data, model, evaluateL2, evaluateL1, batch_size, modelName)
     for inputs in loader.get_batches(data, batch_size, False):
         X, Y = inputs[0], inputs[1]
 
-        if modelName == "CNNRNN_Res_epi":
-            output, EpiOutput, _, _, _ = model(X);
+        if modelName == "CNNRNN_Res_SEIR":
+            output, EpiOutput, Beta, Gamma, Sigma, _ = model(X)
         else:
             output = model(X);
 
@@ -129,7 +129,7 @@ def train(loader, data, model, criterion, optim, batch_size, modelName, Lambda):
 
         model.zero_grad();
 
-        if modelName == "CNNRNN_Res_epi":
+        if modelName == "CNNRNN_Res_SEIR":
             output, EpiOutput, _, _, _ = model(X);
         else:
             output = model(X);
@@ -139,7 +139,7 @@ def train(loader, data, model, criterion, optim, batch_size, modelName, Lambda):
         
         # --------------------------------------------
         # modified loss with epidemiological constrains
-        if modelName == "CNNRNN_Res_epi":
+        if modelName == "CNNRNN_Res_SEIR":
             loss = criterion(output * scale, Y * scale) + Lambda*criterion(EpiOutput * scale, Y * scale);
         else:
             loss = criterion(output * scale, Y * scale);
@@ -159,7 +159,7 @@ def train(loader, data, model, criterion, optim, batch_size, modelName, Lambda):
         # print ("**********************")
         # print (model.parameters())
 
-        # if modelName == "CNNRNN_Res_epi":
+        # if modelName == "CNNRNN_Res_SEIR":
         #     for name, para in model.named_parameters():
         #         # print (name, ":",para.size())
         #         if name == "Beta" or name == "Gamma" or name == "Mu":
@@ -190,16 +190,17 @@ def GetPrediction(loader, data, model, evaluateL2, evaluateL1, batch_size, model
 
     # print ("--------- Get prediction")
     counter = 0
-    if modelName == "CNNRNN_Res_epi":
+    if modelName == "CNNRNN_Res_SEIR":
         BetaList = None
         GammaList = None
+        SigmaList = None
         NGMList = None
 
     for inputs in loader.get_batches(data, batch_size, False):
         X, Y = inputs[0], inputs[1]
         
-        if modelName == "CNNRNN_Res_epi":
-            output, EpiOutput, Beta, Gamma, NGMT = model(X);
+        if modelName == "CNNRNN_Res_SEIR":
+            output, EpiOutput, Beta, Gamma, Sigma, NGMT = model(X);
         else:
             output = model(X);
         
@@ -212,15 +213,17 @@ def GetPrediction(loader, data, model, evaluateL2, evaluateL1, batch_size, model
 
             BetaList = Beta.cpu()
             GammaList = Gamma.cpu()
+            SigmaList = Sigma.cpu()
             NGMList = NGMT.cpu()
         else:
             Y_predict = torch.cat((Y_predict,output.cpu()))
             Y_true = torch.cat((Y_true, Y.cpu()))
             X_true = torch.cat((X_true, X.cpu()))
 
-            if modelName == "CNNRNN_Res_epi":
+            if modelName == "CNNRNN_Res_SEIR":
                 BetaList = torch.cat((BetaList, Beta.cpu()))
                 GammaList = torch.cat((GammaList, Gamma.cpu()))
+                SigmaList = torch.cat((SigmaList, Sigma.cpu()))
                 NGMList = torch.cat((NGMList, NGMT.cpu()))
 
         # scale = loader.scale.expand(output.size(0), loader.m)
@@ -238,15 +241,16 @@ def GetPrediction(loader, data, model, evaluateL2, evaluateL1, batch_size, model
     Y_true = Y_true.detach().numpy()
     X_true = X_true.detach().numpy()
 
-    if modelName == "CNNRNN_Res_epi":
+    if modelName == "CNNRNN_Res_SEIR":
         BetaList = BetaList.detach().numpy()
         GammaList = GammaList.detach().numpy()
+        SigmaList = SigmaList.detach().numpy()
         NGMList = NGMList.detach().numpy()
 
     # print (BetaList.shape)
     # print (GammaList.shape)
     # print (NGMList.shape)
-    if modelName == "CNNRNN_Res_epi":
-        return X_true, Y_predict, Y_true, BetaList, GammaList, NGMList
+    if modelName == "CNNRNN_Res_SEIR":
+        return X_true, Y_predict, Y_true, BetaList, GammaList, SigmaList, NGMList
     else:
         return X_true, Y_predict, Y_true
