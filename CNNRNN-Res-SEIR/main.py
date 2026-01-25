@@ -10,7 +10,7 @@ import torch
 import torch.nn as nn
 # from models import AR, VAR, GAR, RNN, VAR_mask
 # from models import CNNRNN, CNNRNN_Res, CNNRNN_Res_epi
-from models import CNNRNN_Res_epi
+from models import CNNRNN_Res_SEIR
 import numpy as np
 import sys
 import os
@@ -33,7 +33,7 @@ parser = argparse.ArgumentParser(description='Epidemiology Forecasting')
 parser.add_argument('--data', type=str, required=True,help='location of the data file')
 parser.add_argument('--train', type=float, default=0.6,help='how much data used for training')
 parser.add_argument('--valid', type=float, default=0.2,help='how much data used for validation')
-parser.add_argument('--model', type=str, default='CNNRNN_Res_epi',help='model to select')
+parser.add_argument('--model', type=str, default='CNNRNN_Res_SEIR',help='model to select')
 # --- CNNRNN option
 parser.add_argument('--sim_mat', type=str,help='file of similarity measurement (Required for CNNRNN_Res_epi)')
 parser.add_argument('--hidRNN', type=int, default=50, help='number of RNN hidden units')
@@ -148,9 +148,9 @@ try:
             with open(model_path, 'wb') as f:
                 torch.save(model.state_dict(), f)
             print('best validation');
-            test_acc, test_rae, test_corr  = evaluate(Data, Data.test, model, evaluateL2, evaluateL1, args.batch_size, args.model);
-            print ("test rse {:5.4f} | test rae {:5.4f} | test corr {:5.4f}".format(test_acc, test_rae, test_corr))
-        
+            test_acc, test_rae, test_relative_error, test_corr, test_r2 = evaluate(Data, Data.test, model, evaluateL2, evaluateL1, args.batch_size, args.model);
+            print ("test rse {:5.4f} | test rae {:5.4f} | test relative error {:5.2f}% | test corr {:5.4f} | test r2 {:5.4f}".format(test_acc, test_rae, test_relative_error, test_corr, test_r2))
+
         #     y_test_loss.append(y_test_loss[-1])
         # else:
         #     y_test_loss.append(y_test_loss[-1])
@@ -194,12 +194,16 @@ with open(model_path, 'rb') as f:
 
 print ("----------------------------")
 print ("Data.test")
-test_acc, test_rae, test_corr  = evaluate(Data, Data.test, model, evaluateL2, evaluateL1, args.batch_size, args.model);
-print ("test rse {:5.4f} | test rae {:5.4f} | test corr {:5.4f}".format(test_acc, test_rae, test_corr))
+test_acc, test_rae, test_relative_error,test_corr, test_r2 = evaluate(Data, Data.test, model, evaluateL2, evaluateL1, args.batch_size, args.model);
+print ("test rse {:5.4f} | test rae {:5.4f} | test relative error {:5.2f}% | test corr {:5.4f} | test r2 {:5.4f}".format(test_acc, test_rae, test_relative_error, test_corr, test_r2))
 
 # # --------------------------------------------
-if args.model=="CNNRNN_Res_epi" and ifPlot == 1:
-    X_true, Y_predict, Y_true, BetaList, GammaList, NGMList = GetPrediction(Data, Data.test, model, evaluateL2, evaluateL1, args.batch_size, args.model)
+if args.model=="CNNRNN_Res_SEIR" and ifPlot == 1:
+    X_true, Y_predict, Y_true, BetaList, GammaList, SigmaList, NGMList = \
+    GetPrediction(Data, Data.test, model,
+                  evaluateL2, evaluateL1,
+                  args.batch_size, args.model)
+
     # print (X_true.shape)
     # print (Y_predict.shape)
     # print (Y_true.shape)
@@ -209,7 +213,7 @@ if args.model=="CNNRNN_Res_epi" and ifPlot == 1:
         os.makedirs(save_dir)
         
     PlotPredictionTrends(Y_true.T, Y_predict.T, save_dir)
-    PlotParameters(BetaList.T, GammaList.T, save_dir)
+    PlotParameters(BetaList.T, GammaList.T, SigmaList.T, save_dir)
     PlotTrends(X_true.transpose(2, 0, 1), Y_true.T, Y_predict.T, save_dir, args.horizon)
     
     Type = "Next Generation Matrix"
