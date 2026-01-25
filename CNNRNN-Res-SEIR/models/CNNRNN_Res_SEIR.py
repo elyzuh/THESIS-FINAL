@@ -49,7 +49,14 @@ class Model(nn.Module):
                                 nn.Linear(5, 1),
                                 nn.Sigmoid(),
                             )
-
+        
+        self.GRU4 = nn.GRU(1, self.hidR, batch_first=True)
+        self.PredSigma = nn.Sequential(
+            nn.Linear(self.hidR, 5),
+            nn.ReLU(),
+            nn.Linear(5, 1),
+            nn.Sigmoid(),
+        )
 
     def forward(self, x):
         # x: batch x window (self.P) x #signal (m)
@@ -88,33 +95,51 @@ class Model(nn.Module):
         # HiddenGamma = torch.squeeze(HiddenGamma, 0)
         Gamma = self.PredGamma(RoutFinalStep).view(b, self.m)
 
-
-        BetaDiag = torch.Tensor(b, self.m, self.m)
-        GammaDiag = torch.Tensor(b, self.m, self.m)
+        ROut, _= self.GRU4(x_for_Epi)
+        RoutFinalStep = ROut[:, -1, :]
+        Sigma = self.PredSigma(RoutFinalStep).view(b, self.m)
         
-        for batch in range(0, b):
-            BetaDiag[batch] = torch.diag(Beta[batch])
+        # ===== (C) Diagonal matrices for SEIR =====
+        BetaDiag  = torch.zeros(b, self.m, self.m, device=x.device)
+        GammaDiag = torch.zeros(b, self.m, self.m, device=x.device)
+        SigmaDiag = torch.zeros(b, self.m, self.m, device=x.device)
+
+        for batch in range(b):
+            BetaDiag[batch]  = torch.diag(Beta[batch])
             GammaDiag[batch] = torch.diag(Gamma[batch])
+            SigmaDiag[batch] = torch.diag(Sigma[batch])
 
         # same for each sample
         masked_adj_diagValue = torch.diag(torch.diagonal(masked_adj_epi))
         W = torch.diag(torch.sum(masked_adj_epi,dim=0))-masked_adj_diagValue
         A = ((masked_adj_epi.T - masked_adj_diagValue) - W).repeat(b, 1).view(b, self.m, self.m)
 
-        tmp1 = (GammaDiag - A)
-        tmp1[tmp1>1] = 1
 
-        NextGenerationMatrix = BetaDiag.bmm(tmp1.inverse())
+        # ===== (E) SEIR Next-Generation Matrix =====
+        inv_term = (GammaDiag - A)
+        inv_term[inv_term > 1] = 1
+        inv_term = inv_term.inverse()
+
+        # K = σ (γ + A)^(-1) β
+        NextGenerationMatrix = SigmaDiag.bmm(inv_term).bmm(BetaDiag)
         
         # #sample * 1 * #location
-        X_vector_t = xOriginal[:,-1,:].view(b,1,self.m)
+        #X_vector_t = xOriginal[:,-1,:].view(b,1,self.m)
         # #sample * #location * #location
-        NGMT = (NextGenerationMatrix).permute(0,2,1)
-        outputNGMT = NextGenerationMatrix
+        #NGMT = (NextGenerationMatrix).permute(0,2,1)
+        #outputNGMT = NextGenerationMatrix
 
         # #sample * #location
-        y_vector_t = X_vector_t.bmm(NGMT).view(b,self.m)
-        EpiOutput = y_vector_t
+        #y_vector_t = X_vector_t.bmm(NGMT).view(b,self.m)
+        #EpiOutput = y_vector_t
+
+        # ===== (F) SEIR state propagation (E → I) =====
+# Approximate exposed compartment from last observed infections
+        E_vector_t = xOriginal[:, -1, :].view(b, 1, self.m)
+
+        NGMT = NextGenerationMatrix.permute(0, 2, 1)
+        EpiOutput = E_vector_t.bmm(NGMT).view(b, self.m)
+
 
         # ----------------------------------------
         # CNN
@@ -142,5 +167,5 @@ class Model(nn.Module):
         if self.output is not None:
             res = self.output(res).float()
 
-        return res, EpiOutput, Beta, Gamma, outputNGMT
+        return res, EpiOutput, Beta, Gamma, Sigma, NextGenerationMatrix
 
