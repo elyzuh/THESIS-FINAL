@@ -127,9 +127,13 @@ try:
     for epoch in range(1, args.epochs+1):
         epoch_start_time = time.time()
         train_loss = train(Data, Data.train, model, criterion, optim, args.batch_size, args.model, args.epilambda)
-        val_loss, val_rae, val_corr = evaluate(Data, Data.valid, model, evaluateL2, evaluateL1, args.batch_size, args.model);
-        print('| end of epoch {:3d} | time: {:5.2f}s | train_loss {:5.8f} | valid rse {:5.4f} | valid rae {:5.4f} | valid corr  {:5.4f}'.format(epoch, (time.time() - epoch_start_time), train_loss, val_loss, val_rae, val_corr))
-        
+        val_loss, val_rae, val_rel_error, val_corr, val_r2 = evaluate(Data, Data.valid, model, evaluateL2, evaluateL1, args.batch_size, args.model);
+        print('| end of epoch {:3d} | time: {:5.2f}s | train_loss {:5.8f} | '
+            'valid rse {:5.4f} | valid rae {:5.4f} |  valid relative error: {:5.2f}% | valid corr {:5.4f} | valid r2 {:5.4f}'
+            .format(epoch, (time.time() - epoch_start_time),
+                    train_loss, val_loss, val_rae, val_rel_error, val_corr, val_r2))
+
+
         if math.isnan(train_loss)==True:
             sys.exit()
         
