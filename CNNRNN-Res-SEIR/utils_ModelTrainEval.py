@@ -130,7 +130,7 @@ def train(loader, data, model, criterion, optim, batch_size, modelName, Lambda):
         model.zero_grad();
 
         if modelName == "CNNRNN_Res_SEIR":
-            output, EpiOutput, _, _, _ = model(X);
+            output, EpiOutput, _, _, _, _ = model(X);
         else:
             output = model(X);
 
