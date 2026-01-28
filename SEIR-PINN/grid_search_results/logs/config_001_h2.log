@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+  File "/Users/lawrencetulod/THESIS-FINAL/SEIR-PINN/main.py", line 19, in <module>
+    from utils_ModelTrainEval import *
+  File "/Users/lawrencetulod/THESIS-FINAL/SEIR-PINN/utils_ModelTrainEval.py", line 4, in <module>
+    from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+ModuleNotFoundError: No module named 'sklearn'

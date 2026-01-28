@@ -1,0 +1,3 @@
+h1_rmse,h1_mae,h1_corr,h1_r2,h2_rmse,h2_mae,h2_corr,h2_r2,h4_rmse,h4_mae,h4_corr,h4_r2,config_id,hidRNN,lr,dropout,epochs,lambda_physics,lambda_ic,collocation_points,success,timestamp
+,,,,,,,,,,,,0,32,0.001,0.1,10,0.5,0.1,500,False,2026-01-28T19:03:52.901640
+,,,,,,,,,,,,1,32,0.01,0.1,10,0.5,0.1,500,False,2026-01-28T19:03:55.308265
