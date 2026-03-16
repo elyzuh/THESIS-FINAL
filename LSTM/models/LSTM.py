@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from torch.nn import Parameter
 
 
 class Model(nn.Module):
@@ -9,36 +10,19 @@ class Model(nn.Module):
         self.use_cuda = args.cuda
         self.m = data.m
         self.w = args.window
+        self.hidR = args.hidRNN
+        self.n_layers = getattr(args, 'LSTM_layers', 1)
+        self.dropout = getattr(args, 'dropout', 0.2)
 
-        self.lstm1 = nn.LSTM(
+        self.lstm = nn.LSTM(
             input_size=self.m,
-            hidden_size=50,
-            batch_first=True
+            hidden_size=self.hidR,
+            num_layers=self.n_layers,
+            batch_first=True,
+            dropout=self.dropout if self.n_layers > 1 else 0
         )
-        self.dropout1 = nn.Dropout(0.2)
 
-        self.lstm2 = nn.LSTM(
-            input_size=50,
-            hidden_size=60,
-            batch_first=True
-        )
-        self.dropout2 = nn.Dropout(0.3)
-
-        self.lstm3 = nn.LSTM(
-            input_size=60,
-            hidden_size=80,
-            batch_first=True
-        )
-        self.dropout3 = nn.Dropout(0.4)
-
-        self.lstm4 = nn.LSTM(
-            input_size=80,
-            hidden_size=120,
-            batch_first=True
-        )
-        self.dropout4 = nn.Dropout(0.5)
-
-        self.linear = nn.Linear(120, self.m)
+        self.linear = nn.Linear(self.hidR, self.m)
 
         self.output = None
         if args.output_fun == 'sigmoid':
@@ -49,23 +33,11 @@ class Model(nn.Module):
     def forward(self, x):
         # x: batch x window x m
 
-        x, _ = self.lstm1(x)
-        x = torch.relu(x)
-        x = self.dropout1(x)
+        lstm_out, (h_n, c_n) = self.lstm(x)
 
-        x, _ = self.lstm2(x)
-        x = torch.relu(x)
-        x = self.dropout2(x)
+        # use last hidden state from final LSTM layer
+        x = h_n[-1]
 
-        x, _ = self.lstm3(x)
-        x = torch.relu(x)
-        x = self.dropout3(x)
-
-        x, _ = self.lstm4(x)
-        x = torch.relu(x)
-        x = self.dropout4(x)
-
-        x = x[:, -1, :]
         x = self.linear(x)
 
         if self.output is not None:
