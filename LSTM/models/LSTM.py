@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-from torch.nn import Parameter
 
 
 class Model(nn.Module):
@@ -11,18 +10,20 @@ class Model(nn.Module):
         self.m = data.m
         self.w = args.window
         self.hidR = args.hidRNN
-        self.n_layers = getattr(args, 'LSTM_layers', 1)
-        self.dropout = getattr(args, 'dropout', 0.2)
+        self.dropout = args.dropout
 
         self.lstm = nn.LSTM(
             input_size=self.m,
             hidden_size=self.hidR,
-            num_layers=self.n_layers,
+            num_layers=2,
             batch_first=True,
-            dropout=self.dropout if self.n_layers > 1 else 0
+            dropout=self.dropout
         )
 
-        self.linear = nn.Linear(self.hidR, self.m)
+        self.dropout_layer = nn.Dropout(self.dropout)
+        self.fc1 = nn.Linear(self.hidR, self.hidR)
+        self.fc2 = nn.Linear(self.hidR, self.m)
+        self.relu = nn.ReLU()
 
         self.output = None
         if args.output_fun == 'sigmoid':
@@ -35,12 +36,18 @@ class Model(nn.Module):
 
         lstm_out, (h_n, c_n) = self.lstm(x)
 
-        # use last hidden state from final LSTM layer
-        x = h_n[-1]
+        # last hidden state from top LSTM layer
+        out = h_n[-1]                     # batch x hidRNN
+        out = self.dropout_layer(out)
+        out = self.fc1(out)
+        out = self.relu(out)
+        out = self.dropout_layer(out)
+        out = self.fc2(out)
 
-        x = self.linear(x)
+        # residual connection from last observed timestep
+        out = out + x[:, -1, :]
 
         if self.output is not None:
-            x = self.output(x)
+            out = self.output(out)
 
-        return x
+        return out
